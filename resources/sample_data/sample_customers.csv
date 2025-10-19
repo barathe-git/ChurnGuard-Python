@@ -1,0 +1,21 @@
+CustomerID,Email,JoinDate,LastActiveDate,TenureDays,MonthlyCharges,TotalSpend,SupportTickets,ContractType,PaymentMethod,Churn,Region,Age,Gender,SatisfactionScore
+CUST0001,barath.contact@gmail.com,2025-02-27,2025-04-01,33,49.63,2598.93,5,Monthly,PayPal,0,East,55,Female,10
+CUST0002,barath.contact@gmail.com,2025-03-10,2025-04-01,22,76.23,477.44,10,Yearly,Bank Transfer,0,Central,18,Male,7
+CUST0003,barath.contact@gmail.com,2025-03-27,2025-04-01,5,91.61,2167.75,4,Quarterly,PayPal,0,North,56,Other,1
+CUST0004,barath.contact@gmail.com,2025-02-04,2025-04-01,56,88.5,727.65,7,Yearly,UPI,0,Central,38,Female,5
+CUST0005,barath.contact@gmail.com,2025-01-20,2025-03-15,54,27.22,2691.65,0,Monthly,Bank Transfer,1,North,67,Male,6
+CUST0006,barath.contact@gmail.com,2025-01-12,2025-04-01,79,35.09,1887.15,3,Quarterly,Bank Transfer,0,West,33,Male,9
+CUST0007,barath.contact@gmail.com,2025-02-08,2025-04-01,52,92.28,2289.06,3,Quarterly,UPI,0,South,28,Other,4
+CUST0008,barath.contact@gmail.com,2025-01-19,2025-03-22,62,29.37,1696.07,9,Monthly,Bank Transfer,1,North,40,Other,5
+CUST0009,barath.contact@gmail.com,2025-03-29,2025-04-01,3,36.22,2379.0,8,Quarterly,PayPal,0,East,66,Female,2
+CUST0010,barath.contact@gmail.com,2025-02-18,2025-04-01,42,90.65,2762.18,8,Quarterly,UPI,0,Central,31,Female,9
+CUST0011,barath.contact@gmail.com,2025-02-18,2025-04-01,42,116.09,909.92,9,Yearly,Bank Transfer,0,West,52,Other,9
+CUST0012,barath.contact@gmail.com,2025-01-29,2025-04-01,62,77.12,2729.92,10,Yearly,UPI,0,North,24,Male,1
+CUST0013,barath.contact@gmail.com,2025-03-17,2025-04-01,15,66.85,2904.74,5,Yearly,Bank Transfer,0,West,68,Other,9
+CUST0014,barath.contact@gmail.com,2025-01-05,2025-04-01,86,106.71,2272.24,6,Quarterly,Credit Card,0,West,19,Female,10
+CUST0015,barath.contact@gmail.com,2025-03-12,2025-04-01,20,41.83,2388.02,3,Yearly,Bank Transfer,0,South,36,Male,2
+CUST0016,barath.contact@gmail.com,2025-02-13,2025-04-01,47,86.25,453.58,6,Quarterly,Bank Transfer,0,North,25,Male,2
+CUST0017,barath.contact@gmail.com,2025-03-20,2025-04-01,12,87.26,2924.05,7,Quarterly,Credit Card,0,Central,45,Male,4
+CUST0018,barath.contact@gmail.com,2025-01-08,2025-04-01,83,103.56,1645.58,1,Quarterly,Bank Transfer,0,East,45,Male,4
+CUST0019,barath.contact@gmail.com,2025-01-30,2025-04-01,61,66.0,1131.79,10,Yearly,Credit Card,0,South,32,Other,9
+CUST0020,barath.contact@gmail.com,2025-03-14,2025-04-01,18,36.99,2167.66,3,Quarterly,UPI,0,North,27,Other,10
