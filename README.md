@@ -602,10 +602,38 @@ git push origin main
    - Click "Deploy"
    - Your app will be live at `https://your-app.streamlit.app`
 
+### MongoDB Atlas Configuration
+
+**Important:** Before deploying, configure MongoDB Atlas network access:
+
+1. **Login to MongoDB Atlas**
+   - Go to [cloud.mongodb.com](https://cloud.mongodb.com)
+   - Select your cluster
+
+2. **Configure Network Access**
+   - Navigate to **Network Access** (under Security)
+   - Click **Add IP Address**
+   - Select **Allow Access from Anywhere**
+   - Add IP: `0.0.0.0/0`
+   - Click **Confirm**
+
+   > ⚠️ **Note:** `0.0.0.0/0` allows access from any IP address. For production, consider:
+   > - Using specific IP addresses for better security
+   > - Enabling VPC peering for AWS/GCP/Azure deployments
+   > - Using database firewall rules
+
+3. **Get Connection String**
+   - Navigate to **Database** → **Connect**
+   - Select **Connect your application**
+   - Copy the connection string
+   - Replace `<password>` with your database password
+   - Use this as `MONGODB_URI` in your environment variables
+
 ### Deployment Checklist
 
 - [ ] Environment variables configured
-- [ ] MongoDB Atlas accessible
+- [ ] **MongoDB Atlas IP whitelist configured (0.0.0.0/0)**
+- [ ] MongoDB connection string tested
 - [ ] Google Gemini API key valid
 - [ ] SMTP credentials set (if using email)
 - [ ] Logs directory created
