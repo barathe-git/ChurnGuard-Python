@@ -13,7 +13,9 @@ from datetime import datetime
 
 # Import services
 from src.services.llm_data_manager import LLMDataManager
-from ai_agents.csv_processor.csv_to_llm import CSVToLLMProcessor
+from src.ai_agents import CSVProcessor, csv_header_validator
+from src.services.csv_validator import csv_validator, CSVValidationError
+from config.config import config
 from database.connection.db_manager import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ def run_background_analysis(df, csv_file_id, user_id):
         db_manager = DatabaseManager()
         
         # Initialize CSV processor
-        csv_processor = CSVToLLMProcessor()
+        csv_processor = CSVProcessor()
         
         if csv_processor.is_available():
             # Process CSV through LLM
@@ -127,7 +129,8 @@ def clear_user_session_state():
         keys_to_clear = [
             'llm_analysis', 'llm_customer_data', 'uploaded_csv_path',
             'csv_summary_message', 'csv_summary_generated', 'messages',
-            'nlq_agent', 'data_source'
+            'nlq_agent', 'data_source', 'last_validated_file', 'cached_header_validation',
+            'analysis_started', 'analysis_start_time'
         ]
         
         for key in keys_to_clear:
@@ -203,7 +206,7 @@ def render_analytics_page():
     
     # Initialize services
     if 'csv_processor' not in st.session_state:
-        st.session_state.csv_processor = CSVToLLMProcessor()
+        st.session_state.csv_processor = CSVProcessor()
     
     if 'llm_data_manager' not in st.session_state:
         st.session_state.llm_data_manager = LLMDataManager()
@@ -227,15 +230,22 @@ def render_analytics_page():
     # Check for background analysis completion
     if not st.session_state.llm_data_manager.is_data_loaded():
         if check_analysis_status(current_user_id):
+            # Clear analysis_started flag when data is loaded
+            if 'analysis_started' in st.session_state:
+                del st.session_state.analysis_started
             st.rerun()  # Refresh to show the loaded data
+    
+    # Auto-refresh every 2 seconds if analysis is running
+    if st.session_state.get('analysis_started', False) and not st.session_state.llm_data_manager.is_data_loaded():
+        time.sleep(10)
+        st.rerun()
     
     # CSV Upload Section
     render_csv_upload_section()
     
     # Check if analysis is available
     if not st.session_state.llm_data_manager.is_data_loaded():
-        # Show welcome message when no data is loaded
-        st.info("👆 Please upload your CSV file above to start the analysis")
+        # Don't show anything if no data is loaded
         return
     
     # Analytics Dashboard
@@ -245,20 +255,95 @@ def render_csv_upload_section():
     """Render CSV upload section"""
     st.subheader("📁 Upload Customer Data")
     
+    # Show CSV limits info with free tier notice
+    limits = csv_validator.get_limits_info()
+    
+    # Free tier notice
+    st.info(f"""
+    **🆓 Free Tier Limits:**
+    - Maximum file size: **{limits['max_file_size_mb']} MB**
+    - Maximum rows: **{limits['max_rows']}** (only first {limits['max_rows']} rows will be analyzed)
+    - Maximum columns: **{limits['max_columns']}**
+    
+    💡 If your CSV has more than {limits['max_rows']} rows, only the **first {limits['max_rows']} records** will be processed.
+    """)
+    
     # File uploader
     uploaded_file = st.file_uploader(
         "Upload CSV with customer data",
         type=['csv'],
-        help="CSV will be analyzed by AI to generate churn predictions and insights",
+        help=f"CSV will be analyzed by AI. Free tier: first {limits['max_rows']} rows only",
         key="csv_uploader"
     )
     
     if uploaded_file:
         try:
-            df = pd.read_csv(uploaded_file)
-            st.success(f"✅ Loaded {len(df)} records")
+            # Step 1: Validate file size and dimensions (validator will limit to 100 rows for free tier)
+            df, metadata = csv_validator.validate_uploaded_file(uploaded_file)
             
-            # Store CSV file directly in MongoDB
+            # Check if CSV was limited by validator
+            original_row_count = metadata.get('original_row_count', metadata['num_rows'])
+            was_limited = metadata.get('was_limited', False)
+            
+            if was_limited:
+                st.warning(
+                    f"⚠️ CSV has {original_row_count:,} rows. **Free tier will analyze first {limits['max_rows']} rows only.** "
+                    f"Remaining {original_row_count - limits['max_rows']:,} rows will be skipped."
+                )
+            
+            st.success(
+                f"✅ Loaded {original_row_count:,} records ({metadata['file_size_mb']:.2f} MB) | "
+                f"Processing: **{len(df)}** rows"
+            )
+            
+            # Step 2: Validate headers for churn detection suitability (cached to prevent duplicate validation)
+            file_identifier = f"{uploaded_file.name}_{metadata['num_rows']}_{len(df.columns)}"
+            
+            # Only validate if this is a new file or different from last validated file
+            if 'last_validated_file' not in st.session_state or st.session_state.last_validated_file != file_identifier:
+                with st.spinner("🔍 Checking if churn detection is possible with this data..."):
+                    header_validation = csv_header_validator.validate_dataframe(df)
+                    # Cache the validation result
+                    st.session_state.last_validated_file = file_identifier
+                    st.session_state.cached_header_validation = header_validation
+            else:
+                # Use cached validation result
+                header_validation = st.session_state.cached_header_validation
+            
+            # Display validation results
+            if header_validation['is_suitable']:
+                st.success(f"✅ {header_validation['message']}")
+                
+                # Show identified fields
+                if header_validation.get('identified_fields'):
+                    with st.expander("📋 Identified Fields for Churn Analysis"):
+                        for category, fields in header_validation['identified_fields'].items():
+                            if fields:
+                                st.write(f"**{category.replace('_', ' ').title()}:** {', '.join(fields)}")
+                
+                # Show recommendations if any
+                if header_validation.get('recommendations'):
+                    st.info(f"💡 **Recommendation:** {header_validation['recommendations']}")
+            else:
+                # Not suitable for churn detection
+                st.error(f"❌ {header_validation['message']}")
+                
+                st.warning(f"**Reasoning:** {header_validation['reasoning']}")
+                
+                # Show what's missing
+                if header_validation.get('missing_critical_fields'):
+                    st.write("**Missing Critical Fields:**")
+                    for field in header_validation['missing_critical_fields']:
+                        st.write(f"- {field}")
+                
+                # Show recommendations
+                if header_validation.get('recommendations'):
+                    st.info(f"💡 **What You Need:** {header_validation['recommendations']}")
+                
+                # Stop here - don't proceed with upload
+                return
+            
+            # Step 3: Store CSV file in MongoDB (only if validation passed)
             csv_file_id = store_csv_in_mongodb(uploaded_file, df)
             
             if csv_file_id:
@@ -281,11 +366,22 @@ def render_csv_upload_section():
                     st.metric("Columns", len(df.columns))
             
             # AI Analysis Button
-            st.subheader("🤖 AI Analysis")
-            col1, col2 = st.columns([1, 1])
-            
-            with col1:
-                if st.button("🚀 Analyze with AI", type="primary", use_container_width=True):
+            if not st.session_state.llm_data_manager.is_data_loaded():
+                st.subheader("🤖 AI Analysis")
+                
+                # Check if analysis is in progress
+                analysis_in_progress = st.session_state.get('analysis_started', False)
+                
+                # Show button with disabled state when analysis is running
+                button_label = "⏳ Analysis Running..." if analysis_in_progress else "🚀 Analyze with AI"
+                
+                if st.button(
+                    button_label,
+                    type="primary",
+                    use_container_width=True,
+                    disabled=analysis_in_progress,
+                    key="analyze_button"
+                ):
                     if st.session_state.csv_processor.is_available():
                         try:
                             # Start background analysis
@@ -307,19 +403,19 @@ def render_csv_upload_section():
                             st.rerun()
                             
                         except Exception as e:
+                            # Clear analysis flag on error
+                            st.session_state.analysis_started = False
                             st.error(f"❌ Error starting AI analysis: {str(e)}")
                     else:
                         st.error("❌ AI processor not available. Please check your configuration.")
             
-            with col2:
-                if st.session_state.llm_data_manager.is_data_loaded():
-                    st.success("✅ AI Analysis Complete")
-                elif st.session_state.get('analysis_started', False):
-                    st.info("⏳ AI Analysis Running...")
-                else:
-                    st.info("⏳ Ready for AI Analysis")
-            
             # Show analysis status
+            if st.session_state.llm_data_manager.is_data_loaded():
+                st.success("✅ AI Analysis Complete")
+            elif st.session_state.get('analysis_started', False):
+                st.info("⏳ AI Analysis Running...")
+            
+            # Show analysis results
             if st.session_state.llm_data_manager.is_data_loaded():
                 st.subheader("📊 Analysis Results")
                 summary = st.session_state.llm_data_manager.get_summary_data()
@@ -334,21 +430,21 @@ def render_csv_upload_section():
                         st.metric("Medium Risk", summary.get('medium_risk_customers', 0))
                     with col4:
                         st.metric("Low Risk", summary.get('low_risk_customers', 0))
-            elif st.session_state.get('analysis_started', False):
-                # Show analysis progress
-                st.subheader("⏳ Analysis Status")
-                st.info("🤖 AI is analyzing your data in the background...")
-                
-                # Show elapsed time
-                if 'analysis_start_time' in st.session_state:
-                    elapsed = datetime.now() - st.session_state.analysis_start_time
-                    st.info(f"⏱️ Analysis running for: {elapsed.seconds // 60} minutes {elapsed.seconds % 60} seconds")
-                
-                st.info("💡 You can navigate to other pages - the analysis will continue running!")
-                st.info("🔄 Check back in a few minutes to see the results.")
-                
+        
+        except CSVValidationError as e:
+            st.error(f"❌ CSV Validation Failed: {str(e)}")
+            logger.error(f"CSV validation error: {str(e)}")
+            # Show limits
+            limits = csv_validator.get_limits_info()
+            st.info(
+                f"📋 **Upload Limits:**\n\n"
+                f"- Maximum file size: **{limits['max_file_size_mb']} MB**\n"
+                f"- Maximum rows: **{limits['max_rows']:,}**\n"
+                f"- Maximum columns: **{limits['max_columns']}**\n"
+                f"- Minimum rows: **{limits['min_rows']}**"
+            )
         except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
+            st.error(f"❌ Error processing file: {str(e)}")
             logger.error(f"File processing error: {str(e)}")
 
 def load_user_data_from_mongodb(user_id: str):

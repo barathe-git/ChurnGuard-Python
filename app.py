@@ -3,7 +3,7 @@ ChurnGuard - AI-Powered Customer Retention Platform
 Main Streamlit Application Entry Point
 """
 import streamlit as st
-from frontend.pages import auth, analytics, chat, outreach
+from frontend.pages import auth, analytics, chat, outreach, settings
 from config.config import Config
 from config.logging_config import setup_logging
 import logging
@@ -84,6 +84,10 @@ def main():
 
             if st.button("🚪 Logout"):
                 auth.render_logout()
+        
+        # Global analysis status banner (top of main area)
+        if st.session_state.get('analysis_started', False):
+            st.info("⏳ **AI Analysis in Progress** - Your data is being analyzed in the background.")
 
         # Route to appropriate page
         if page == "📊 Analytics":
@@ -92,8 +96,10 @@ def main():
             chat.render_chat_page()
         elif page == "📢 Outreach":
             outreach.render_outreach()
+        elif page == "⚙️ Settings":
+            settings.render_settings_page()
         else:
-            st.info("Settings page coming soon!")
+            st.info("Page not found")
 
 if __name__ == "__main__":
     try:

@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     """Manage MongoDB connections and collections"""
+    
+    # Class-level flag to track if we've logged initialization (avoid spam in Streamlit reruns)
+    _first_init_logged = False
 
     def __init__(self):
         self.client: Optional[MongoClient] = None
@@ -36,7 +39,11 @@ class DatabaseManager:
             
             # Test the connection
             self.client.admin.command('ping')
-            logger.info("MongoDB connection initialized successfully")
+            
+            # Only log on first initialization to avoid spam in Streamlit reruns
+            if not DatabaseManager._first_init_logged:
+                logger.info("MongoDB connection initialized successfully")
+                DatabaseManager._first_init_logged = True
             
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
             logger.error(f"Failed to connect to MongoDB: {str(e)}")

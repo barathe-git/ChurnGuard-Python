@@ -1,0 +1,57 @@
+/* Chat Page Specific Styles */
+
+.chat-container {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.chat-header {
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 0.5rem;
+    color: white;
+    margin-bottom: 1.5rem;
+}
+
+.quick-action-button {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    border: 2px solid #1f77b4;
+    background-color: white;
+    color: #1f77b4;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quick-action-button:hover {
+    background-color: #1f77b4;
+    color: white;
+}
+
+.message-bubble {
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-bottom: 0.5rem;
+    max-width: 80%;
+}
+
+.message-bubble.user {
+    background-color: #1f77b4;
+    color: white;
+    margin-left: auto;
+}
+
+.message-bubble.assistant {
+    background-color: #f0f2f6;
+    color: #333;
+}
+
+.chat-input-container {
+    position: sticky;
+    bottom: 0;
+    background-color: white;
+    padding: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+

@@ -1,0 +1,15 @@
+## Customer Data to Analyze
+
+{csv_text}
+
+Please analyze this customer data and provide a comprehensive churn analysis in the exact JSON format specified above.
+
+Remember:
+- Base ALL analysis on the provided data
+- Output ONLY valid JSON (no additional text)
+- Include all required fields and structure
+- Use realistic numbers based on the data
+- Ensure JSON is properly formatted and parseable
+
+## Analysis Output:
+

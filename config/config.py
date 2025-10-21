@@ -18,6 +18,7 @@ class Config:
 
     # API Keys
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     # MongoDB Atlas Configuration
     MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
@@ -94,6 +95,12 @@ class Config:
     CHURN_THRESHOLD_HIGH = 0.7
     CHURN_THRESHOLD_MEDIUM = 0.4
     CHURN_ANALYSIS_DAYS = 30
+    
+    # CSV Upload Limits (Free Tier - optimized for token efficiency)
+    CSV_MAX_FILE_SIZE_MB = int(os.getenv("CSV_MAX_FILE_SIZE_MB", "10"))  # 10 MB for free tier
+    CSV_MAX_ROWS = int(os.getenv("CSV_MAX_ROWS", "100"))  # 100 rows for free tier
+    CSV_MAX_COLUMNS = int(os.getenv("CSV_MAX_COLUMNS", "30"))  # 30 columns for free tier
+    CSV_MIN_ROWS = int(os.getenv("CSV_MIN_ROWS", "1"))  # Minimum 1 row
     
     # Monitoring Configuration
     SENTRY_DSN = os.getenv('SENTRY_DSN', '')

@@ -1,0 +1,105 @@
+# ChurnGuard System Messages
+
+## Welcome Messages
+
+### First-time User Welcome
+Welcome to ChurnGuard! 🛡️ Your AI-powered customer retention platform is ready to help you identify at-risk customers and take proactive action.
+
+### Returning User Welcome
+Welcome back to ChurnGuard! Ready to dive into your customer retention insights?
+
+### Demo Mode Welcome
+Welcome to ChurnGuard Demo Mode! 🚀 Explore all features with sample data. No account required.
+
+## Informational Messages
+
+### About ChurnGuard
+ChurnGuard is an AI-powered customer retention platform that helps you:
+- Identify at-risk customers before they leave
+- Understand churn drivers and patterns
+- Create targeted retention campaigns
+- Track campaign performance and ROI
+
+### Data Privacy
+Your data is secure and private:
+- All data is encrypted in transit and at rest
+- User-specific data isolation (SaaS architecture)
+- No data sharing with third parties
+- Compliant with data protection regulations
+
+### Support Information
+Need help? We're here for you!
+- Documentation: Check our help center
+- Email: support@churnguard.com
+- Live Chat: Available during business hours
+- Community: Join our user forum
+
+## Error Messages
+
+### Generic Error
+Oops! Something went wrong. Please try again. If the problem persists, contact support.
+
+### Connection Error
+Unable to connect to the server. Please check your internet connection and try again.
+
+### Permission Error
+You don't have permission to perform this action. Please contact your administrator.
+
+### Data Not Found
+The requested data could not be found. It may have been deleted or moved.
+
+### Session Expired
+Your session has expired. Please log in again to continue.
+
+## Success Messages
+
+### Action Completed
+Success! Your action has been completed.
+
+### Data Saved
+Your data has been saved successfully.
+
+### Settings Updated
+Your settings have been updated.
+
+### Campaign Launched
+Your campaign has been launched successfully and is now active.
+
+## Loading Messages
+
+### Analyzing Data
+Analyzing your data... This may take a moment.
+
+### Loading Dashboard
+Loading your dashboard...
+
+### Processing Request
+Processing your request...
+
+### Preparing Report
+Preparing your report...
+
+## Tips and Hints
+
+### CSV Upload Tips
+- Ensure your CSV includes customer IDs and behavioral data
+- For best results, include temporal data (dates, activity)
+- Free tier processes first 100 rows
+
+### Chat Tips
+- Ask specific questions for detailed answers
+- General questions use summary mode (faster, fewer tokens)
+- Clear chat history to start fresh
+
+### Campaign Tips
+- Target high-risk customers first for maximum impact
+- Personalize messages using customer data
+- Schedule campaigns during optimal engagement times
+- Track metrics to improve future campaigns
+
+### Token Optimization Tips
+- Ask general questions when possible
+- Be specific only when you need detailed customer lists
+- Clear old chat conversations
+- Use scheduled campaigns instead of real-time for bulk actions
+
