@@ -1,0 +1,82 @@
+/* Analytics Page Specific Styles */
+
+.analytics-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #1f77b4;
+    transition: transform 0.2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f77b4;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.upload-zone {
+    border: 2px dashed #1f77b4;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+    background-color: #e9ecef;
+    border-color: #0d5aa7;
+}
+
+.risk-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.risk-badge.high {
+    background-color: #ff4444;
+    color: white;
+}
+
+.risk-badge.medium {
+    background-color: #ffaa00;
+    color: white;
+}
+
+.risk-badge.low {
+    background-color: #44ff44;
+    color: #333;
+}
+
+.chart-container {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+

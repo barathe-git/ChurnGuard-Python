@@ -158,7 +158,6 @@ def render_data_management(db_manager, user_id, username):
     
     with col2:
         if st.button("Cancel", use_container_width=True):
-            st.session_state.confirm_reset = False
             st.rerun()
 
 def perform_reset(db_manager, user_id, username):

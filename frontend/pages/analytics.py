@@ -13,9 +13,8 @@ from datetime import datetime
 
 # Import services
 from src.services.llm_data_manager import LLMDataManager
-from ai_agents.csv_processor.csv_to_llm import CSVToLLMProcessor
+from src.ai_agents import CSVProcessor, csv_header_validator
 from src.services.csv_validator import csv_validator, CSVValidationError
-from ai_agents.csv_header_validator import csv_header_validator
 from config.config import config
 from database.connection.db_manager import DatabaseManager
 
@@ -30,7 +29,7 @@ def run_background_analysis(df, csv_file_id, user_id):
         db_manager = DatabaseManager()
         
         # Initialize CSV processor
-        csv_processor = CSVToLLMProcessor()
+        csv_processor = CSVProcessor()
         
         if csv_processor.is_available():
             # Process CSV through LLM
@@ -207,7 +206,7 @@ def render_analytics_page():
     
     # Initialize services
     if 'csv_processor' not in st.session_state:
-        st.session_state.csv_processor = CSVToLLMProcessor()
+        st.session_state.csv_processor = CSVProcessor()
     
     if 'llm_data_manager' not in st.session_state:
         st.session_state.llm_data_manager = LLMDataManager()
