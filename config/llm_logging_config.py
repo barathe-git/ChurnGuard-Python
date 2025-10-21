@@ -3,33 +3,52 @@
 LLM Logging Configuration - Dedicated logging for LLM interactions
 """
 import logging
+import logging.handlers
 import os
 from datetime import datetime
+from pathlib import Path
 
 def setup_llm_logging():
     """Setup dedicated logging for LLM interactions"""
     
-    # Create logs directory if it doesn't exist
-    os.makedirs('logs', exist_ok=True)
-    
     # Create LLM logger
     llm_logger = logging.getLogger('llm_interactions')
+    
+    # Check if already configured (avoid duplicate setup in Streamlit)
+    if any(hasattr(h, '_churnguard_llm_handler') for h in llm_logger.handlers):
+        return llm_logger
+    
+    # Create logs directory structure
+    log_dir = Path(__file__).parent.parent / "logs"
+    llm_log_dir = log_dir / "llm"
+    
+    # Create subdirectories
+    log_dir.mkdir(exist_ok=True)
+    llm_log_dir.mkdir(exist_ok=True)
+    
     llm_logger.setLevel(logging.INFO)
     
     # Remove existing handlers to avoid duplicates
     for handler in llm_logger.handlers[:]:
         llm_logger.removeHandler(handler)
     
-    # Create file handler for LLM logs
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    llm_log_file = f'logs/llm_interactions_{timestamp}.log'
-    
-    file_handler = logging.FileHandler(llm_log_file)
+    # Create file handler for LLM logs with daily rotation
+    # Creates one log file per day (llm_interactions_YYYYMMDD.log)
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        llm_log_dir / 'llm_interactions.log',
+        when='midnight',
+        interval=1,
+        backupCount=30,  # Keep 30 days of logs
+        encoding='utf-8'
+    )
+    file_handler.suffix = "%Y%m%d"
     file_handler.setLevel(logging.INFO)
+    file_handler._churnguard_llm_handler = True  # Mark as ChurnGuard LLM handler
     
     # Create console handler for LLM logs
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
+    console_handler._churnguard_llm_handler = True  # Mark as ChurnGuard LLM handler
     
     # Create formatter
     formatter = logging.Formatter(

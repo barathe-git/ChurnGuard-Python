@@ -33,6 +33,7 @@ class CSVToLLMProcessor:
         """Initialize the processor"""
         self.model = None
         self.system_prompt = ""
+        self.user_prompt_template = ""
         
         # Setup LLM logging
         if LLM_LOGGING_AVAILABLE:
@@ -49,10 +50,10 @@ class CSVToLLMProcessor:
             genai.configure(api_key=config.GEMINI_API_KEY)
             
             # Initialize the model
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            self.model = genai.GenerativeModel(config.GEMINI_MODEL)
             
-            # Load system prompt
-            self._load_system_prompt()
+            # Load prompts
+            self._load_prompts()
             
             logger.info("CSV to LLM processor initialized successfully")
             
@@ -60,48 +61,66 @@ class CSVToLLMProcessor:
             logger.error(f"Error initializing CSV processor: {str(e)}")
             self.model = None
     
-    def _load_system_prompt(self):
-        """Load system prompt from file"""
+    def _load_prompts(self):
+        """Load system and user prompt templates from files"""
         try:
-            prompt_file = "resources/prompts/churn_analysis_system_prompt.txt"
-            if os.path.exists(prompt_file):
-                with open(prompt_file, 'r', encoding='utf-8') as f:
+            # Load system prompt
+            system_prompt_file = "resources/prompts/churn_analysis_system_prompt.txt"
+            if os.path.exists(system_prompt_file):
+                with open(system_prompt_file, 'r', encoding='utf-8') as f:
                     self.system_prompt = f.read()
-                logger.info("System prompt loaded successfully")
+                logger.info("CSV analysis system prompt loaded successfully")
             else:
-                logger.error(f"System prompt file not found: {prompt_file}")
+                logger.error(f"System prompt file not found: {system_prompt_file}")
                 self.system_prompt = "You are ChurnGuard AI, an expert customer retention analyst."
+            
+            # Load user prompt template
+            user_prompt_file = "resources/prompts/csv_analysis_user_prompt_template.txt"
+            if os.path.exists(user_prompt_file):
+                with open(user_prompt_file, 'r', encoding='utf-8') as f:
+                    self.user_prompt_template = f.read()
+                logger.info("CSV analysis user prompt template loaded successfully")
+            else:
+                logger.error(f"User prompt template file not found: {user_prompt_file}")
+                self.user_prompt_template = "## Customer Data to Analyze\n\n{csv_text}\n\n## Analysis Output:"
+                
         except Exception as e:
-            logger.error(f"Error loading system prompt: {str(e)}")
+            logger.error(f"Error loading prompts: {str(e)}")
             self.system_prompt = "You are ChurnGuard AI, an expert customer retention analyst."
+            self.user_prompt_template = "## Customer Data to Analyze\n\n{csv_text}\n\n## Analysis Output:"
     
     def process_csv(self, csv_data: pd.DataFrame, csv_file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Process CSV data through LLM and return structured analysis"""
+        """
+        Process CSV data through LLM and return structured analysis
+        
+        Args:
+            csv_data: DataFrame to analyze (should already be limited to 100 rows)
+            csv_file_path: Optional path to CSV file
+            
+        Returns:
+            Structured analysis result or None if processing fails
+        """
         if not self.model:
             logger.error("Model not available - cannot process CSV")
             return None
             
         try:
+            # SAFETY CHECK: Ensure we never process more than 100 rows (free tier limit)
+            max_rows = 100
+            original_count = len(csv_data)
+            if original_count > max_rows:
+                logger.warning(f"DataFrame has {original_count} rows, limiting to {max_rows} for free tier")
+                csv_data = csv_data.head(max_rows)
+            
+            # Log CSV info (validation already done in frontend)
+            logger.info(f"Processing CSV: {len(csv_data):,} rows × {len(csv_data.columns)} columns")
+            
             # Convert DataFrame to readable format
             csv_text = self._dataframe_to_text(csv_data)
             
-            # Create the prompt
-            prompt = f"""{self.system_prompt}
-
-## Customer Data to Analyze
-
-{csv_text}
-
-Please analyze this customer data and provide a comprehensive churn analysis in the exact JSON format specified above.
-
-Remember:
-- Base ALL analysis on the provided data
-- Output ONLY valid JSON (no additional text)
-- Include all required fields and structure
-- Use realistic numbers based on the data
-- Ensure JSON is properly formatted and parseable
-
-## Analysis Output:"""
+            # Build the complete prompt using templates
+            user_prompt = self.user_prompt_template.format(csv_text=csv_text)
+            prompt = f"{self.system_prompt}\n\n{user_prompt}"
             
             # Log the prompt being sent to LLM
             if LLM_LOGGING_AVAILABLE:
@@ -178,25 +197,37 @@ Remember:
             return None
     
     def _dataframe_to_text(self, df: pd.DataFrame) -> str:
-        """Convert DataFrame to readable text format"""
+        """Convert DataFrame to readable text format - optimized for token efficiency"""
         try:
             # Get basic info
+            # Note: DataFrame should already be limited to 100 rows before reaching here
+            row_count = len(df)
             text = f"Dataset Overview:\n"
-            text += f"- Total Records: {len(df)}\n"
+            text += f"- Total Records: {row_count}\n"
             text += f"- Columns: {', '.join(df.columns.tolist())}\n\n"
             
-            # Add ALL data (not just sample)
-            text += "Complete Customer Data:\n"
+            text += "Customer Data:\n"
             text += df.to_string(index=False)
             text += "\n\n"
             
-            # Add column statistics
-            text += "Column Statistics:\n"
+            # Add comprehensive column statistics for the processed dataset
+            text += f"Statistical Summary ({len(df)} records):\n"
             for col in df.columns:
                 if df[col].dtype in ['int64', 'float64']:
-                    text += f"- {col}: min={df[col].min()}, max={df[col].max()}, mean={df[col].mean():.2f}\n"
+                    text += f"- {col}: min={df[col].min()}, max={df[col].max()}, "
+                    text += f"mean={df[col].mean():.2f}, median={df[col].median():.2f}, "
+                    text += f"std={df[col].std():.2f}\n"
                 else:
-                    text += f"- {col}: {df[col].nunique()} unique values\n"
+                    unique_vals = df[col].nunique()
+                    text += f"- {col}: {unique_vals} unique values"
+                    if unique_vals <= 10:
+                        text += f" ({', '.join(df[col].unique().astype(str).tolist())})"
+                    text += "\n"
+            
+            # Add instruction for LLM to generate predictions for the data we sent
+            text += f"\nIMPORTANT: Generate churn predictions for these {len(df)} customers in the churn_predictions object. "
+            text += f"Each customer needs: customer_id, churn_probability, risk_level, primary_risk_factors, "
+            text += f"retention_recommendation, and estimated_revenue_impact.\n"
             
             return text
             

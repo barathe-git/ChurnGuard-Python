@@ -94,6 +94,9 @@ class LLMDataManager:
             # Add additional calculated fields
             self._add_calculated_fields()
             
+            # Recalculate summary data based on actual customer DataFrame
+            self._recalculate_summary()
+            
             logger.info("=== CREATING CUSTOMER DATAFRAME END ===")
             
         except Exception as e:
@@ -127,6 +130,46 @@ class LLMDataManager:
             
         except Exception as e:
             logger.error(f"Error adding calculated fields: {str(e)}")
+    
+    def _recalculate_summary(self):
+        """Recalculate summary data based on actual customer DataFrame"""
+        try:
+            if self.customer_df is None:
+                return
+            
+            logger.info("Recalculating summary data from customer DataFrame")
+            
+            # Count customers by risk level
+            high_risk = len(self.customer_df[self.customer_df['risk_level'] == 'high'])
+            medium_risk = len(self.customer_df[self.customer_df['risk_level'] == 'medium'])
+            low_risk = len(self.customer_df[self.customer_df['risk_level'] == 'low'])
+            total_customers = len(self.customer_df)
+            
+            # Calculate revenue at risk
+            total_revenue_at_risk = self.customer_df['estimated_revenue_impact'].sum()
+            high_risk_revenue = self.customer_df[self.customer_df['risk_level'] == 'high']['estimated_revenue_impact'].sum()
+            
+            # Update summary data
+            if self.summary_data is None:
+                self.summary_data = {}
+            
+            self.summary_data.update({
+                'total_customers': total_customers,
+                'high_risk_customers': high_risk,
+                'medium_risk_customers': medium_risk,
+                'low_risk_customers': low_risk,
+                'total_revenue_at_risk': float(total_revenue_at_risk),
+                'high_risk_revenue_at_risk': float(high_risk_revenue),
+                'average_churn_probability': float(self.customer_df['churn_probability'].mean()),
+                'max_churn_probability': float(self.customer_df['churn_probability'].max()),
+                'min_churn_probability': float(self.customer_df['churn_probability'].min())
+            })
+            
+            logger.info(f"Summary recalculated: {total_customers} total customers, "
+                       f"{high_risk} high risk, {medium_risk} medium risk, {low_risk} low risk")
+            
+        except Exception as e:
+            logger.error(f"Error recalculating summary: {str(e)}")
     
     def get_customer_dataframe(self) -> Optional[pd.DataFrame]:
         """Get the customer DataFrame"""

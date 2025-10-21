@@ -120,9 +120,27 @@ def render_chat_page():
         if check_analysis_status(current_user_id):
             st.rerun()  # Refresh to show the loaded data
     
-    # Check if analysis is available
+    # Check if analysis is available or in progress
     if not st.session_state.llm_data_manager.is_data_loaded():
-        st.info("👆 Please upload and analyze CSV data first from the Analytics page")
+        # Check if analysis is currently running
+        analysis_in_progress = st.session_state.get('analysis_started', False)
+        
+        if analysis_in_progress:
+            st.info("⏳ **AI Analysis in Progress**")
+            st.markdown("""
+            Your data is currently being analyzed. Please wait...
+            
+            The analysis continues in the background. You can stay on this page and it will automatically 
+            update when complete, or return to the Analytics page.
+            """)
+            
+            # Auto-refresh every 3 seconds to check if analysis is complete
+            import time
+            time.sleep(10)
+            st.rerun()
+        else:
+            st.info("👆 Please upload and analyze CSV data first from the Analytics page")
+        
         return
     
     # Initialize chat agent
@@ -135,6 +153,60 @@ def render_chat_page():
         st.warning("⚠️ No data available - please upload CSV file first")
     else:
         st.info("📊 Using sample data")
+    
+    st.markdown("---")
+    
+    # Quick action buttons
+    st.markdown("#### 🚀 Quick Actions")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📊 Show Summary", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
+            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
+                # Add user question to chat
+                user_question = "Give me a summary of the customer data"
+                st.session_state.messages.append({"role": "user", "content": user_question})
+                
+                # Pass conversation history to the LLM
+                conversation_history = st.session_state.messages[:-1]  # Exclude the current user message
+                response = st.session_state.nlq_agent.ask(user_question, conversation_history)
+                
+                # Add assistant response to chat
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                store_chat_interaction(user_question, response)
+                st.rerun()
+    
+    with col2:
+        if st.button("🎯 Top Risks", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
+            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
+                # Add user question to chat
+                user_question = "What are the top risk factors for churn?"
+                st.session_state.messages.append({"role": "user", "content": user_question})
+                
+                # Pass conversation history to the LLM
+                conversation_history = st.session_state.messages[:-1]  # Exclude the current user message
+                response = st.session_state.nlq_agent.ask(user_question, conversation_history)
+                
+                # Add assistant response to chat
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                store_chat_interaction(user_question, response)
+                st.rerun()
+    
+    with col3:
+        if st.button("💡 Recommendations", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
+            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
+                # Add user question to chat
+                user_question = "What recommendations do you have for customer retention?"
+                st.session_state.messages.append({"role": "user", "content": user_question})
+                
+                # Pass conversation history to the LLM
+                conversation_history = st.session_state.messages[:-1]  # Exclude the current user message
+                response = st.session_state.nlq_agent.ask(user_question, conversation_history)
+                
+                # Add assistant response to chat
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                store_chat_interaction(user_question, response)
+                st.rerun()
     
     st.markdown("---")
     
@@ -180,43 +252,6 @@ def render_chat_page():
     else:
         # Disable chat input when no data is available
         st.chat_input("Upload CSV file first to enable chat...", disabled=True)
-    
-    # Quick action buttons
-    st.markdown("#### 🚀 Quick Actions")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("📊 Show Summary", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
-            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
-                with st.chat_message("assistant"):
-                    # Pass conversation history to the LLM
-                    conversation_history = st.session_state.messages
-                    response = st.session_state.nlq_agent.ask("Give me a summary of the customer data", conversation_history)
-                    st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                store_chat_interaction("Give me a summary of the customer data", response)
-    
-    with col2:
-        if st.button("🎯 Top Risks", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
-            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
-                with st.chat_message("assistant"):
-                    # Pass conversation history to the LLM
-                    conversation_history = st.session_state.messages
-                    response = st.session_state.nlq_agent.ask("What are the top risk factors for churn?", conversation_history)
-                    st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                store_chat_interaction("What are the top risk factors for churn?", response)
-    
-    with col3:
-        if st.button("💡 Recommendations", use_container_width=True, disabled=st.session_state.get('data_source') != 'llm_analysis'):
-            if st.session_state.nlq_agent and st.session_state.nlq_agent.is_available():
-                with st.chat_message("assistant"):
-                    # Pass conversation history to the LLM
-                    conversation_history = st.session_state.messages
-                    response = st.session_state.nlq_agent.ask("What recommendations do you have for customer retention?", conversation_history)
-                    st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-                store_chat_interaction("What recommendations do you have for customer retention?", response)
 
 def load_user_data_from_mongodb(user_id: str):
     """Load user's existing data from MongoDB for chat"""
@@ -321,7 +356,7 @@ def _generate_csv_summary():
 • **High Risk:** {summary.get('high_risk_customers', 0)} customers ({summary.get('high_risk_customers', 0)/summary.get('total_customers', 1)*100:.1f}%)
 • **Medium Risk:** {summary.get('medium_risk_customers', 0)} customers ({summary.get('medium_risk_customers', 0)/summary.get('total_customers', 1)*100:.1f}%)
 • **Low Risk:** {summary.get('low_risk_customers', 0)} customers ({summary.get('low_risk_customers', 0)/summary.get('total_customers', 1)*100:.1f}%)
-• **Revenue at Risk:** ${summary.get('total_revenue_at_risk', 0):,}
+• **Revenue at Risk:** ${summary.get('total_revenue_at_risk', 0):,.2f}
 
 **Top Insights:**
 {chr(10).join([f"• {insight}" for insight in insights.get('top_churn_drivers', [])[:2]])}

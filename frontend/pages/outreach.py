@@ -89,13 +89,41 @@ def render_outreach():
     
     # Try to load existing data for the user
     if not st.session_state.llm_data_manager.is_data_loaded():
-        if not load_user_data_from_mongodb(current_user_id):
-            st.info("👆 Please upload CSV data and run AI analysis from the Analytics page first")
-            return
+        load_user_data_from_mongodb(current_user_id)
     
-    # Check if churn data is available
+    # Check for background analysis completion
     if not st.session_state.llm_data_manager.is_data_loaded():
-        st.info("👆 Please upload CSV data and run AI analysis from the Analytics page first")
+        from frontend.pages.analytics import check_analysis_status
+        if check_analysis_status(current_user_id):
+            st.rerun()  # Refresh to show the loaded data
+    
+    # Check if churn data is available or analysis in progress
+    if not st.session_state.llm_data_manager.is_data_loaded():
+        # Check if analysis is currently running
+        analysis_in_progress = st.session_state.get('analysis_started', False)
+        
+        if analysis_in_progress:
+            st.info("⏳ **AI Analysis in Progress**")
+            st.markdown("""
+            Your data is currently being analyzed. Please wait...
+            
+            The analysis continues in the background. You can stay on this page and it will automatically 
+            update when complete, or return to the Analytics page.
+            
+            Once the analysis is complete, you'll be able to:
+            - 📧 Create targeted email campaigns
+            - 📱 Send SMS to high-risk customers
+            - 📞 Launch voice call campaigns
+            - 📊 Track campaign performance
+            """)
+            
+            # Auto-refresh every 3 seconds to check if analysis is complete
+            import time
+            time.sleep(10)
+            st.rerun()
+        else:
+            st.info("👆 Please upload CSV data and run AI analysis from the Analytics page first")
+        
         return
     
     # Get customer data from LLM analysis
@@ -152,7 +180,12 @@ def render_email_campaigns(churn_df):
         # Email template
         st.subheader("📝 Email Template")
         
-        template_type = st.text_input("Template Type", placeholder="e.g., Retention, Win-back, Nurturing, Custom", key="email_template_type")
+        template_type = st.selectbox(
+            "Template Type",
+            options=["Retention", "Win-back", "Nurturing", "Custom"],
+            key="email_template_type",
+            help="Select a pre-built template or create your own custom message"
+        )
         
         if template_type.lower() in ["retention", "win-back", "nurturing"]:
             if template_type.lower() == "retention":
@@ -216,17 +249,67 @@ The ChurnGuard Team"""
         )
         
         # Preview
-        if st.button("👁️ Preview Email"):
-            if 'customer_id' in churn_df.columns and 'email' in churn_df.columns:
-                sample_customer = churn_df.iloc[0]
-                preview_text = message_template.format(
-                    customer_name=sample_customer.get('email', 'Customer').split('@')[0]
+        col_preview1, col_preview2 = st.columns(2)
+        
+        with col_preview1:
+            if st.button("👁️ Preview Email"):
+                if 'customer_id' in churn_df.columns and 'email' in churn_df.columns:
+                    sample_customer = churn_df.iloc[0]
+                    preview_text = message_template.format(
+                        customer_name=sample_customer.get('email', 'Customer').split('@')[0]
+                    )
+                    st.text_area("Preview", value=preview_text, height=150, disabled=True)
+        
+        with col_preview2:
+            if st.button("📋 Show Target Recipients"):
+                # Get target customers based on segment
+                if target_segment == "High Risk":
+                    target_df = churn_df[churn_df['risk_level'] == 'high']
+                elif target_segment == "Medium Risk":
+                    target_df = churn_df[churn_df['risk_level'] == 'medium']
+                elif target_segment == "Low Risk":
+                    target_df = churn_df[churn_df['risk_level'] == 'low']
+                else:  # All Customers
+                    target_df = churn_df
+                
+                st.session_state.show_recipients = True
+                st.session_state.target_recipients_df = target_df
+        
+        # Display target recipients if button was clicked
+        if st.session_state.get('show_recipients', False) and st.session_state.get('target_recipients_df') is not None:
+            st.subheader(f"📧 Target Recipients ({len(st.session_state.target_recipients_df)} customers)")
+            
+            # Show relevant columns
+            display_cols = ['customer_id', 'email', 'risk_level']
+            if 'churn_probability' in st.session_state.target_recipients_df.columns:
+                display_cols.append('churn_probability')
+            
+            # Filter to only existing columns
+            display_cols = [col for col in display_cols if col in st.session_state.target_recipients_df.columns]
+            
+            if 'email' in display_cols:
+                st.dataframe(
+                    st.session_state.target_recipients_df[display_cols],
+                    use_container_width=True,
+                    hide_index=True
                 )
-                st.text_area("Preview", value=preview_text, height=150, disabled=True)
+                
+                # Check for missing emails
+                missing_emails = st.session_state.target_recipients_df['email'].isna().sum()
+                if missing_emails > 0:
+                    st.warning(f"⚠️ Warning: {missing_emails} customer(s) don't have email addresses and will be skipped")
+            else:
+                st.warning("⚠️ No email addresses found in the customer data. Please ensure your CSV file includes an 'email' column.")
         
         # Create campaign
         if st.button("🚀 Create Email Campaign", type="primary"):
             if campaign_name and message_template:
+                # Reset the recipients display
+                if 'show_recipients' in st.session_state:
+                    del st.session_state.show_recipients
+                if 'target_recipients_df' in st.session_state:
+                    del st.session_state.target_recipients_df
+                
                 create_email_campaign(campaign_name, subject_line, target_segment, message_template, scheduled_date, scheduled_time, priority)
             else:
                 st.error("Please fill in campaign name and message template")
@@ -494,26 +577,41 @@ def create_email_campaign(name, subject, segment, template, date, time, priority
         
         # Check if this is a scheduled email (future date/time)
         if scheduled_datetime > current_datetime:
+            # Count valid email addresses
+            valid_emails = sum(1 for c in target_customers if c.get('email') and not pd.isna(c.get('email')))
+            
             # Schedule for later
             schedule_email_campaign(name, subject, segment, template, scheduled_datetime, priority, target_customers)
             st.success(f"✅ Email campaign '{name}' scheduled successfully!")
-            st.info(f"📧 Campaign Scheduled:\n- Target segment: {segment}\n- Scheduled for: {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}\n- Priority: {priority}\n- Recipients: {len(target_customers)}")
+            
+            schedule_info = f"📧 Campaign Scheduled:\n- Target segment: {segment}\n- Scheduled for: {scheduled_datetime.strftime('%Y-%m-%d %H:%M')}\n- Priority: {priority}\n- Total recipients: {len(target_customers)}\n- Valid emails: {valid_emails}"
+            if valid_emails < len(target_customers):
+                schedule_info += f"\n- Will skip: {len(target_customers) - valid_emails} (no email)"
+            st.info(schedule_info)
         else:
             # Send immediately
             sent_count = 0
             failed_count = 0
+            skipped_count = 0
             
             for customer in target_customers:
                 try:
+                    # Check if customer has email
+                    customer_email = customer.get('email', '')
+                    if not customer_email or pd.isna(customer_email):
+                        logger.warning(f"Skipping customer {customer.get('customer_id', 'Unknown')} - no email address")
+                        skipped_count += 1
+                        continue
+                    
                     # Personalize the email template
                     personalized_content = template.format(
                         customer_name=customer.get('customer_id', 'Valued Customer'),
-                        email=customer.get('email', ''),
+                        email=customer_email,
                         churn_probability=customer.get('churn_probability', 0)
                     )
                     
                     # Send real email
-                    send_real_email(customer.get('email', ''), subject, personalized_content)
+                    send_real_email(customer_email, subject, personalized_content)
                     sent_count += 1
                     
                 except Exception as e:
@@ -521,8 +619,12 @@ def create_email_campaign(name, subject, segment, template, date, time, priority
                     failed_count += 1
             
             # Show results
-            st.success(f"✅ Email campaign '{name}' sent successfully!")
-            st.info(f"📧 Campaign Results:\n- Emails sent: {sent_count}\n- Failed: {failed_count}\n- Target segment: {segment}\n- Sent at: {current_datetime.strftime('%Y-%m-%d %H:%M')}\n- Priority: {priority}")
+            st.success(f"✅ Email campaign '{name}' completed!")
+            result_message = f"📧 Campaign Results:\n- Emails sent: {sent_count}\n- Failed: {failed_count}"
+            if skipped_count > 0:
+                result_message += f"\n- Skipped (no email): {skipped_count}"
+            result_message += f"\n- Target segment: {segment}\n- Sent at: {current_datetime.strftime('%Y-%m-%d %H:%M')}\n- Priority: {priority}"
+            st.info(result_message)
         
         # Store campaign data
         campaign_data = {

@@ -1,0 +1,19 @@
+{context}
+
+{conversation_history}
+
+**Current User Question:** {question}
+
+**Instructions:**
+- Analyze the uploaded CSV file to answer the question
+- Calculate statistics and metrics directly from the CSV data
+- Consider the conversation history when providing context
+- Be specific and use exact numbers from your analysis
+- If the data doesn't contain information to answer, say so clearly
+- Keep answers concise but informative
+- Use bullet points for multiple items
+- Focus on actionable insights for customer retention
+- Reference previous questions/answers when relevant
+
+**Answer:**
+
